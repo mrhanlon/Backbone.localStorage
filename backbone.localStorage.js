@@ -36,8 +36,9 @@ function guid() {
 // Our Store is represented by a single JS object in *localStorage*. Create it
 // with a meaningful name, like the name you'd give a table.
 // window.Store is deprectated, use Backbone.LocalStorage instead
-Backbone.LocalStorage = window.Store = function(name) {
+Backbone.LocalStorage = window.Store = function(name, type) {
   this.name = name;
+  this.type = type || "local";
   var store = this.localStorage().getItem(this.name);
   this.records = (store && store.split(",")) || [];
 };
@@ -88,7 +89,7 @@ _.extend(Backbone.LocalStorage.prototype, {
   // Delete a model from `this.data`, returning it.
   destroy: function(model) {
     if (model.isNew())
-      return false
+      return false;
     this.localStorage().removeItem(this.name+"-"+model.id);
     this.records = _.reject(this.records, function(id){
       return id === model.id.toString();
@@ -98,9 +99,9 @@ _.extend(Backbone.LocalStorage.prototype, {
   },
 
   localStorage: function() {
-    return localStorage;
+    return this.type === "local" ? localStorage : sessionStorage;
   },
-  
+
   // fix for "illegal access" error on Android when JSON.parse is passed null
   jsonData: function (data) {
       return data && JSON.parse(data);
@@ -114,13 +115,13 @@ _.extend(Backbone.LocalStorage.prototype, {
 Backbone.LocalStorage.sync = window.Store.sync = Backbone.localSync = function(method, model, options) {
   var store = model.localStorage || model.collection.localStorage;
 
-  var resp, errorMessage, syncDfd = $.Deferred && $.Deferred(); //If $ is having Deferred - use it. 
+  var resp, errorMessage, syncDfd = $.Deferred && $.Deferred(); //If $ is having Deferred - use it.
 
   try {
 
     switch (method) {
       case "read":
-        resp = model.id != undefined ? store.find(model) : store.findAll();
+        resp = model.id !== undefined ? store.find(model) : store.findAll();
         break;
       case "create":
         resp = store.create(model);
@@ -154,7 +155,7 @@ Backbone.LocalStorage.sync = window.Store.sync = Backbone.localSync = function(m
   } else {
     errorMessage = errorMessage ? errorMessage
                                 : "Record Not Found";
-    
+
     model.trigger("error", model, errorMessage, options);
     if (options && options.error)
       if (Backbone.VERSION === "0.9.10") {
@@ -162,11 +163,11 @@ Backbone.LocalStorage.sync = window.Store.sync = Backbone.localSync = function(m
       } else {
         options.error(errorMessage);
       }
-      
+
     if (syncDfd)
       syncDfd.reject(errorMessage);
   }
-  
+
   // add compatibility with $.ajax
   // always execute callback for success and error
   if (options && options.complete) options.complete(resp);
